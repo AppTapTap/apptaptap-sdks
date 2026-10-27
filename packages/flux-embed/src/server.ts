@@ -11,8 +11,8 @@ export const DEFAULT_BASE_URL = 'https://apptaptap-vapor-backend.fly.dev/api/flu
 export interface CreateEmbedSessionOptions {
   /** `flux_sk_live_...` / `flux_sk_test_...` (legacy `flux_sk_<hex>` works too). Never ship it to a browser. */
   secretKey: string
-  /** Event id (UUID) or slug. */
-  event: string
+  /** Event id (UUID) or slug (sent as `event`). */
+  eventId: string
   /** Origin allowed to frame the flow and redeem the token, e.g. https://app.example.com */
   allowedOrigin?: string
   /** Your id for this person; echoed on the registration. */
@@ -39,7 +39,7 @@ export async function createEmbedSession(o: CreateEmbedSessionOptions): Promise<
   if (!o.secretKey || !o.secretKey.startsWith('flux_sk_')) {
     throw new TypeError('createEmbedSession: secretKey must be a flux_sk_ secret key (flux_pk_ keys cannot mint embed tokens)')
   }
-  if (!o.event) throw new TypeError('createEmbedSession: event is required')
+  if (!o.eventId) throw new TypeError('createEmbedSession: eventId is required')
   const base = (o.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '')
   const res = await postJSON<{ embed_token: string; expires_at: string; event_id: string; mode: 'live' | 'test' }>({
     url: `${base}/embed/sessions`,
@@ -48,7 +48,7 @@ export async function createEmbedSession(o: CreateEmbedSessionOptions): Promise<
     fetch: o.fetch,
     product: 'flux',
     body: compact({
-      event: o.event, allowed_origin: o.allowedOrigin, external_ref: o.externalRef, embedded_data: o.embeddedData,
+      event: o.eventId, allowed_origin: o.allowedOrigin, external_ref: o.externalRef, embedded_data: o.embeddedData,
       locked: o.locked, expires_in_sec: o.expiresInSec,
     }),
   })

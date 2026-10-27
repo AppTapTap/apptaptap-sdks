@@ -1,7 +1,8 @@
-// @apptaptap/flux-embed: browser entry. Loads the HOSTED Flux loader once (it defines <flux-event> and
-// window.Flux) and wraps Flux.mount with typed events. Same protocol v1 as Little Black Box (MessageChannel
-// handshake, embed token in the iframe URL fragment, events re-dispatched on the host as 'flux:<type>').
-// The runtime iframe lives at https://flux.events/embed/v1/:eventId.
+// @apptaptap/flux-embed: browser entry. Loads the HOSTED Flux loader (https://flux.events/embed/v1/flux.js)
+// once — it defines <flux-event> and window.FluxEmbed — and wraps FluxEmbed.mount with typed events.
+// Protocol v1, message-for-message LBB's with ns 'flux': MessageChannel handshake, the embed token in the iframe
+// URL fragment (#t=), every event re-dispatched on the host element as 'flux:<type>' (plus the short aliases
+// 'flux:registration' and 'flux:checkout'). The runtime iframe is https://flux.events/embed/v1/:eventId.
 import { fire, listen, loadOnce, resolveEl } from '../../../shared/src/loader'
 
 export const RUNTIME_URL = 'https://flux.events/embed/v1/flux.js'
@@ -10,19 +11,14 @@ export const ELEMENT_NAME = 'flux-event'
 export interface FluxEventMap {
   ready: { protocol?: number; eid?: string }
   resize: { height: number }
-  /** Confirm `completion_token` server-side (GET /api/flux/v1/registrations/{id}/completion) before granting anything. */
-  'registration.created': {
-    event_id: string
-    guest_id?: string
-    registration_id?: string
-    status?: 'going' | 'maybe' | 'waitlisted' | string
-    completion_token?: string
-    external_ref?: string
-  }
+  /**
+   * The LBB `response.completed` equivalent. `completion_token` is NOT proof: confirm it on your server
+   * (GET /api/flux/v1/registrations/{registration_id}/completion?token=...) before granting anything.
+   */
+  'registration.created': { registration_id: string; completion_token: string | null; event_id: string }
   /** A priced ticket: send the buyer to `checkout_url` (https://flux.events/e/<event>/checkout?tier=...). */
-  'checkout.required': { checkout_url: string; event_id?: string; tier_id?: string }
-  redirect: { url: string }
-  error: { code: string; retryable?: boolean; message?: string }
+  'checkout.required': { event_id: string; tier_id: string; checkout_url: string }
+  error: { code: string; retryable: boolean; message?: string }
   close: Record<string, never>
 }
 export type FluxEventType = keyof FluxEventMap
@@ -30,66 +26,67 @@ export type FluxListener<K extends FluxEventType> = (payload: FluxEventMap[K]) =
 
 export interface FluxMountOptions {
   /** Event id (UUID) or slug. */
-  event: string
-  /** One-time embed token from `createEmbedSession` (server). Sent in the URL fragment, never the query. */
+  eventId: string
+  /** One-time embed token (`flux_et_live_…` / `flux_et_test_…`) from `createEmbedSession` on your server. */
   token?: string
-  /** Called for a fresh embed token (also once more if the first one expired). Wins over `token`. */
+  /** Called for a fresh embed token (and once more if the first expired or was used). Wins over `token`. */
   fetchToken?: () => string | Promise<string>
-  /** Same-origin URL POSTed for `{ embed_token }`. */
+  /** Same-origin URL POSTed for `{ embed_token }` (retried once on expiry). */
   tokenUrl?: string
-  mode?: 'inline' | 'popup' | 'slider'
-  theme?: 'auto' | 'light' | 'dark'
+  /** Display only: accent colour (#rrggbb), corner radius (px, 0..99), Google Font family. */
   accent?: string
-  bg?: string
+  radius?: number | string
   font?: string
-  radius?: 'sm' | 'md' | 'lg'
-  lang?: string
-  chrome?: boolean
+  poweredBy?: boolean
+  /** Initial iframe height in px (default 560; the runtime then resizes it). */
   height?: number
-  label?: string
   title?: string
-  /** Starting values for unlocked fields (name, email, ...). Locked embedded data always wins. */
-  prefill?: Record<string, string>
-  /** Navigate the host page to checkout_url on checkout.required (https only). Default false: handle it yourself. */
+  /** Instance id echoed in `ready` (several embeds on one page). */
+  eid?: string
+  /** Starting values for unlocked fields; locked embedded data always wins. */
+  prefill?: { name?: string; email?: string }
+  /** Navigate the host page to checkout_url on checkout.required (https only). Default false. */
   followCheckout?: boolean
-  /** Override the hosted loader (staging). */
+  /** Override the hosted loader (staging). The iframe origin follows the loader's origin. */
   runtimeUrl?: string
 }
 
+/** What window.FluxEmbed.mount returns. */
 export interface FluxRuntimeInstance {
-  el: HTMLElement
-  iframe: HTMLIFrameElement | null
-  open(): void
-  close(): void
+  el: Element
+  iframe: HTMLIFrameElement
   destroy(): void
-  prefill(fields: Record<string, string>): void
+  ui(u: { accent?: string; radius?: number | string; font?: string }): void
+  prefill(fields: Record<string, unknown>): void
+  on(type: string, cb: (payload: Record<string, unknown>, type: string) => void): () => void
 }
+/** window.FluxEmbed, defined by the hosted loader. */
 export interface FluxRuntime {
   version: number
   protocol: number
-  mount(el: HTMLElement, opts: Record<string, unknown>): FluxRuntimeInstance
-  on?(type: string, cb: (payload: unknown, type: string) => void): () => void
-  destroy?(): void
+  mount(el: Element, opts: Record<string, unknown>): FluxRuntimeInstance
+  on(type: string, cb: (payload: Record<string, unknown>, type: string) => void): () => void
+  destroy(): void
 }
 
 declare global {
-  interface Window { Flux?: FluxRuntime }
+  interface Window { FluxEmbed?: FluxRuntime }
 }
 
-const runtime = () => (typeof window !== 'undefined' && window.Flux && window.Flux.protocol === 1 ? window.Flux : undefined)
+const runtime = () => (typeof window !== 'undefined' && window.FluxEmbed && window.FluxEmbed.protocol === 1 ? window.FluxEmbed : undefined)
 
-/** Loads the hosted loader exactly once; resolves when <flux-event> and window.Flux exist. */
+/** Loads the hosted loader exactly once; resolves when <flux-event> and window.FluxEmbed exist. */
 export function register(opts: { runtimeUrl?: string } = {}): Promise<FluxRuntime> {
   return loadOnce(opts.runtimeUrl || RUNTIME_URL, () => !!runtime()).then(() => runtime()!)
 }
 
 export interface FluxHandle {
   readonly el: HTMLElement
+  /** Resolves once the runtime has mounted the iframe (rejects if the loader could not load). */
   readonly ready: Promise<FluxRuntimeInstance>
   on<K extends FluxEventType>(type: K, cb: FluxListener<K>): () => void
-  open(): void
-  close(): void
-  prefill(fields: Record<string, string>): void
+  ui(u: { accent?: string; radius?: number | string; font?: string }): void
+  prefill(fields: { name?: string; email?: string }): void
   destroy(): void
 }
 
@@ -98,20 +95,19 @@ export function on<K extends FluxEventType>(el: EventTarget, type: K, cb: FluxLi
   return listen(el, 'flux:' + type, cb)
 }
 
+/** SDK options -> FluxEmbed.mount options (the loader reads eventId, token, tokenUrl, fetchToken, ...). */
 export function toRuntimeOptions(o: FluxMountOptions): Record<string, unknown> {
-  const fetchToken = o.fetchToken ?? (o.token ? () => o.token as string : undefined)
   const out: Record<string, unknown> = {
-    event: o.event, tokenUrl: o.tokenUrl, fetchToken, mode: o.mode, theme: o.theme, accent: o.accent, bg: o.bg,
-    font: o.font, radius: o.radius, lang: o.lang, chrome: o.chrome === false ? '0' : undefined, height: o.height,
-    label: o.label, title: o.title, prefill: o.prefill,
+    eventId: o.eventId, token: o.token, tokenUrl: o.tokenUrl, fetchToken: o.fetchToken, accent: o.accent,
+    radius: o.radius, font: o.font, poweredBy: o.poweredBy, height: o.height, title: o.title, eid: o.eid,
   }
   for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k]
   return out
 }
 
-/** Mounts the registration flow for one event into `el` (inline) or attaches a popup/slider trigger to it. */
+/** Mounts the registration flow for one event into `el`. */
 export function mount(target: HTMLElement | string, opts: FluxMountOptions): FluxHandle {
-  if (!opts.event) throw new Error('mount: event is required')
+  if (!opts.eventId) throw new Error('mount: eventId is required')
   const el = resolveEl(target)
   let inst: FluxRuntimeInstance | null = null
   let dead = false
@@ -121,6 +117,7 @@ export function mount(target: HTMLElement | string, opts: FluxMountOptions): Flu
   const ready = register({ runtimeUrl: opts.runtimeUrl }).then((rt) => {
     if (dead) throw new Error('destroyed')
     inst = rt.mount(el, toRuntimeOptions(opts))
+    if (opts.prefill) inst.prefill(opts.prefill)
     return inst
   })
   ready.catch((e: Error) => { if (!dead) fire(el, 'flux:error', { code: 'runtime_load_failed', retryable: true, message: e.message }) })
@@ -128,8 +125,7 @@ export function mount(target: HTMLElement | string, opts: FluxMountOptions): Flu
     el,
     ready,
     on: (type, cb) => on(el, type, cb),
-    open: () => inst?.open(),
-    close: () => inst?.close(),
+    ui: (u) => inst?.ui(u),
     prefill: (fields) => inst?.prefill(fields),
     destroy: () => { dead = true; offCheckout?.(); inst?.destroy(); inst = null },
   }

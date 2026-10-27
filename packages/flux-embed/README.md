@@ -8,10 +8,10 @@ npm install @apptaptap/flux-embed
 
 | Entry | Runs in | What it gives you |
 |---|---|---|
-| `@apptaptap/flux-embed` | browser | `register()` (loads the hosted `https://flux.events/embed/v1/flux.js` once, which defines `<flux-event>`), `mount(el, opts)`, typed `on()` |
+| `@apptaptap/flux-embed` | browser | `register()` (loads the hosted `https://flux.events/embed/v1/flux.js` once, which defines `<flux-event>` and `window.FluxEmbed`), `mount(el, { eventId, token })`, typed `on()` |
 | `@apptaptap/flux-embed/react` | browser (React 17+) | `<FluxEvent eventId token onRegistration onCheckout onError />` |
 | `@apptaptap/flux-embed/server` | Node 18+ | `createEmbedSession()`, `verifyWebhook()` |
-| `dist/flux-embed.global.js` | `<script>` tag | `window.FluxEmbed` (same API as the browser entry) |
+| `dist/flux-embed.global.js` | `<script>` tag | `window.FluxEmbedSDK` (same API as the browser entry; `window.FluxEmbed` belongs to the hosted loader) |
 
 ## Server: mint a one-time embed token
 
@@ -20,7 +20,7 @@ import { createEmbedSession } from '@apptaptap/flux-embed/server'
 
 const { embedToken } = await createEmbedSession({
   secretKey: process.env.FLUX_SECRET_KEY!,     // flux_sk_live_... (never in a browser)
-  event: eventId,
+  eventId,
   allowedOrigin: 'https://app.example.com',
   externalRef: user.id,
   embeddedData: { name: user.name, email: user.email },
@@ -42,10 +42,24 @@ import { FluxEvent } from '@apptaptap/flux-embed/react'
 />
 ```
 
-Events: `ready`, `resize`, `registration.created`, `checkout.required` (a priced ticket: send the buyer to
-`checkout_url`, or pass `followCheckout`), `redirect`, `error`, `close`; each is also a DOM `CustomEvent`
-named `flux:<type>` on the host element. The token travels in the iframe URL fragment, never the query string.
-The browser is not trusted: confirm with `GET /api/flux/v1/registrations/{id}/completion?token=...` on your server.
+or without React:
+
+```ts
+import { mount } from '@apptaptap/flux-embed'
+const flux = mount('#register', { eventId, token: embedToken, accent: '#0E6B52', prefill: { name: 'Ada' } })
+flux.on('registration.created', (e) => console.log(e.registration_id))
+```
+
+Plain HTML works too: `<flux-event event-id="EVENT" token="flux_et_live_…">` after the hosted
+`<script src="https://flux.events/embed/v1/flux.js" async>`.
+
+Events: `ready`, `resize`, `registration.created {registration_id, completion_token, event_id}` (Flux's
+`response.completed`), `checkout.required {event_id, tier_id, checkout_url}` (a priced ticket: send the buyer
+there, or pass `followCheckout`), `error {code, retryable, message?}`, `close`. Each is also a DOM `CustomEvent`
+`flux:<type>` on the host element (plus the aliases `flux:registration` and `flux:checkout`). The token travels in
+the iframe URL fragment (`#t=`), never the query string; `fetchToken` / `tokenUrl` get one fresh-token retry.
+The browser is not trusted: confirm with `GET /api/flux/v1/registrations/{registration_id}/completion?token=...`
+on your server.
 
 ## Webhooks
 

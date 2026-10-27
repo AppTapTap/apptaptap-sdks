@@ -14,7 +14,7 @@ describe('createEmbedSession', () => {
   it('POSTs /api/flux/v1/embed/sessions with the secret key, Idempotency-Key and a snake_case body', async () => {
     const f = fakeFetch(201, { embed_token: 'flux_et_test_abc', expires_at: '2026-10-26T20:10:00Z', event_id: 'E1', mode: 'test' })
     const s = await createEmbedSession({
-      secretKey: 'flux_sk_test_123', event: 'E1', allowedOrigin: 'https://app.example.com', externalRef: 'u_1',
+      secretKey: 'flux_sk_test_123', eventId: 'E1', allowedOrigin: 'https://app.example.com', externalRef: 'u_1',
       embeddedData: { email: 'a@example.com' }, locked: ['email'], expiresInSec: 300, idempotencyKey: 'idem-1', fetch: f,
     })
     expect(s).toEqual({ embedToken: 'flux_et_test_abc', expiresAt: '2026-10-26T20:10:00Z', eventId: 'E1', mode: 'test' })
@@ -29,13 +29,13 @@ describe('createEmbedSession', () => {
   })
   it('maps the error envelope (request id from the header when the body has none)', async () => {
     const f = fakeFetch(422, { error: 'invalid_allowed_origin', message: 'allowed_origin must be an origin.' }, { 'x-request-id': 'req_h' })
-    const err = await createEmbedSession({ secretKey: 'flux_sk_live_1', event: 'E1', fetch: f }).catch((e) => e)
+    const err = await createEmbedSession({ secretKey: 'flux_sk_live_1', eventId: 'E1', fetch: f }).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 422, code: 'invalid_allowed_origin', requestId: 'req_h' })
   })
   it('refuses a publishable key before any request', async () => {
     const f = fakeFetch(201, {})
-    await expect(createEmbedSession({ secretKey: 'flux_pk_live_1', event: 'E1', fetch: f })).rejects.toThrow(TypeError)
+    await expect(createEmbedSession({ secretKey: 'flux_pk_live_1', eventId: 'E1', fetch: f })).rejects.toThrow(TypeError)
     expect(f).not.toHaveBeenCalled()
   })
 })
