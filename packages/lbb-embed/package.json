@@ -1,0 +1,43 @@
+{
+  "name": "@apptaptap/lbb-embed",
+  "version": "0.1.0",
+  "description": "Embed Little Black Box surveys (<lbb-survey>, React) and verify its webhooks on your server.",
+  "license": "MIT",
+  "author": "AppTapTap",
+  "homepage": "https://github.com/AppTapTap/apptaptap-sdks/tree/main/packages/lbb-embed#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/AppTapTap/apptaptap-sdks.git", "directory": "packages/lbb-embed" },
+  "keywords": ["littleblackbox", "survey", "embed", "web-component", "react", "webhooks", "standard-webhooks"],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/lbb-embed.global.js",
+  "jsdelivr": "./dist/lbb-embed.global.js",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./react": {
+      "import": { "types": "./dist/react.d.ts", "default": "./dist/react.js" },
+      "require": { "types": "./dist/react.d.cts", "default": "./dist/react.cjs" }
+    },
+    "./server": {
+      "import": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
+      "require": { "types": "./dist/server.d.cts", "default": "./dist/server.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" },
+  "peerDependencies": { "react": ">=17" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "prepack": "npm run build && cp ../../LICENSE LICENSE"
+  }
+}
