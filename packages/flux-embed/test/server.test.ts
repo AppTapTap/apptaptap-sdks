@@ -27,6 +27,20 @@ describe('createEmbedSession', () => {
       embedded_data: { email: 'a@example.com' }, locked: ['email'], expires_in_sec: 300,
     })
   })
+  it('sends powered_by only when poweredBy is set (false is sent, not dropped)', async () => {
+    const ok = { embed_token: 'flux_et_test_abc', expires_at: '2026-10-27T18:00:00Z', event_id: 'E1', mode: 'test' }
+    const hidden = fakeFetch(201, ok)
+    await createEmbedSession({ secretKey: 'flux_sk_test_1', eventId: 'E1', poweredBy: false, fetch: hidden })
+    expect(JSON.parse(hidden.mock.calls[0][1]!.body!)).toEqual({ event: 'E1', powered_by: false })
+    const shown = fakeFetch(201, ok)
+    await createEmbedSession({ secretKey: 'flux_sk_test_1', eventId: 'E1', poweredBy: true, fetch: shown })
+    expect(JSON.parse(shown.mock.calls[0][1]!.body!)).toEqual({ event: 'E1', powered_by: true })
+    const unset = fakeFetch(201, ok)
+    await createEmbedSession({ secretKey: 'flux_sk_test_1', eventId: 'E1', fetch: unset })
+    const body = JSON.parse(unset.mock.calls[0][1]!.body!)
+    expect(body).toEqual({ event: 'E1' })
+    expect('powered_by' in body).toBe(false)
+  })
   it('maps the error envelope (request id from the header when the body has none)', async () => {
     const f = fakeFetch(422, { error: 'invalid_allowed_origin', message: 'allowed_origin must be an origin.' }, { 'x-request-id': 'req_h' })
     const err = await createEmbedSession({ secretKey: 'flux_sk_live_1', eventId: 'E1', fetch: f }).catch((e) => e)

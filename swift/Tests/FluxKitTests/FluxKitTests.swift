@@ -32,6 +32,26 @@ final class FluxKitTests: XCTestCase {
         XCTAssertEqual((body["embedded_data"] as? [String: String])?["firstName"], "Ada") // dictionary keys untouched
         XCTAssertEqual(body["locked"] as? [String], ["email"])
         XCTAssertNil(body["external_ref"])
+        XCTAssertNil(body["powered_by"]) // unset: absent, so the server default (shown) applies
+    }
+
+    func testCreateEmbedSessionSendsPoweredByOnlyWhenSet() async throws {
+        let ok = #"{"embed_token":"flux_et_test_abc","expires_at":"2026-10-27T00:10:00Z","event_id":"E1","mode":"test"}"#
+        let t = FluxMock(201, ok)
+        let client = FluxClient(secretKey: "flux_sk_test_1", transport: t)
+        _ = try await client.createEmbedSession(eventId: "E1", poweredBy: false)
+        _ = try await client.createEmbedSession(eventId: "E1", poweredBy: true)
+        _ = try await client.createEmbedSession(eventId: "E1")
+        let bodies = try t.requests.map { try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap($0.httpBody)) as? [String: Any]) }
+        XCTAssertEqual(bodies.count, 3)
+        XCTAssertEqual(bodies[0]["powered_by"] as? Bool, false)
+        XCTAssertEqual(bodies[1]["powered_by"] as? Bool, true)
+        XCTAssertNil(bodies[2]["powered_by"])
+        XCTAssertNil(bodies[2]["poweredBy"])
+        // the request-builder overload encodes it too
+        let req = try client.createEmbedSessionRequest(eventId: "E1", poweredBy: false)
+        let built = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(req.httpBody)) as? [String: Any])
+        XCTAssertEqual(built["powered_by"] as? Bool, false)
     }
 
     func testRegisterPaymentRequiredBecomesCheckout() async throws {

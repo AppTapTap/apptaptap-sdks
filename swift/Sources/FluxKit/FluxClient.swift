@@ -52,27 +52,32 @@ public struct FluxClient: Sendable {
         let externalRef: String?
         let embeddedData: [String: String]?
         let locked: [String]?
+        let poweredBy: Bool?
         let expiresInSec: Int?
         enum CodingKeys: String, CodingKey {
-            case event, allowedOrigin = "allowed_origin", externalRef = "external_ref", embeddedData = "embedded_data", locked, expiresInSec = "expires_in_sec"
+            case event, allowedOrigin = "allowed_origin", externalRef = "external_ref", embeddedData = "embedded_data", locked,
+                 poweredBy = "powered_by", expiresInSec = "expires_in_sec"
         }
     }
 
     public func createEmbedSessionRequest(eventId: String, allowedOrigin: String? = nil, externalRef: String? = nil,
-                                          embeddedData: [String: String]? = nil, locked: [String]? = nil, expiresInSec: Int? = nil,
-                                          idempotencyKey: String? = nil) throws -> URLRequest {
+                                          embeddedData: [String: String]? = nil, locked: [String]? = nil, poweredBy: Bool? = nil,
+                                          expiresInSec: Int? = nil, idempotencyKey: String? = nil) throws -> URLRequest {
         let body = EmbedSessionBody(event: eventId, allowedOrigin: allowedOrigin, externalRef: externalRef, embeddedData: embeddedData,
-                                    locked: locked, expiresInSec: expiresInSec)
+                                    locked: locked, poweredBy: poweredBy, expiresInSec: expiresInSec)
         return api.makeRequest(method: "POST", path: ["embed", "sessions"], body: try APIClient.encode(body), idempotencyKey: idempotencyKey)
     }
 
     /// `POST /embed/sessions` → a one-time embed token for one event (and optionally one origin and one customer).
+    /// `allowedOrigin` also works inside the Flux iframe (the frame sends `embed_origin`). Keys in `locked` show read-only in the
+    /// embed (name, email, matching custom-question labels). `poweredBy: false` hides "Powered by Flux" for this token; nil leaves
+    /// the server default (shown) and is not sent.
     public func createEmbedSession(eventId: String, allowedOrigin: String? = nil, externalRef: String? = nil,
-                                   embeddedData: [String: String]? = nil, locked: [String]? = nil, expiresInSec: Int? = nil,
-                                   idempotencyKey: String? = nil) async throws -> FluxEmbedSession {
+                                   embeddedData: [String: String]? = nil, locked: [String]? = nil, poweredBy: Bool? = nil,
+                                   expiresInSec: Int? = nil, idempotencyKey: String? = nil) async throws -> FluxEmbedSession {
         try await api.send(createEmbedSessionRequest(eventId: eventId, allowedOrigin: allowedOrigin, externalRef: externalRef,
-                                                     embeddedData: embeddedData, locked: locked, expiresInSec: expiresInSec,
-                                                     idempotencyKey: idempotencyKey))
+                                                     embeddedData: embeddedData, locked: locked, poweredBy: poweredBy,
+                                                     expiresInSec: expiresInSec, idempotencyKey: idempotencyKey))
     }
 
     /// `GET /events` (raw JSON).
