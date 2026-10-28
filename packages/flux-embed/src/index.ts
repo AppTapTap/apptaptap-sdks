@@ -33,10 +33,15 @@ export interface FluxMountOptions {
   fetchToken?: () => string | Promise<string>
   /** Same-origin URL POSTed for `{ embed_token }` (retried once on expiry). */
   tokenUrl?: string
-  /** Display only: accent colour (#rrggbb), corner radius (px, 0..99), Google Font family. */
+  /** Display only: accent colour (#rrggbb), corner radius (px, integer 0..24), Google Font family. */
   accent?: string
   radius?: number | string
   font?: string
+  /**
+   * Accepted and ignored by the v1 runtime, so existing pages keep working. Whether "Powered by Flux" shows is
+   * decided by the embed token: mint it with `createEmbedSession({ poweredBy: false })` to hide it. A public
+   * embed (no token) always shows the link.
+   */
   poweredBy?: boolean
   /** Initial iframe height in px (default 560; the runtime then resizes it). */
   height?: number

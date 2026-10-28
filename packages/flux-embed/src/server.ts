@@ -13,13 +13,27 @@ export interface CreateEmbedSessionOptions {
   secretKey: string
   /** Event id (UUID) or slug (sent as `event`). */
   eventId: string
-  /** Origin allowed to frame the flow and redeem the token, e.g. https://app.example.com */
+  /**
+   * Origin allowed to frame the flow and redeem the token, e.g. https://app.example.com. Works inside the Flux
+   * iframe too: the frame sends your page's origin to the API as `embed_origin` (taken from the loader's
+   * handshake), so you do nothing extra.
+   */
   allowedOrigin?: string
   /** Your id for this person; echoed on the registration. */
   externalRef?: string
   /** Prefilled customer fields (name, email, ...). Keys listed in `locked` cannot be changed by the visitor. */
   embeddedData?: Record<string, string>
+  /**
+   * Keys of `embeddedData` the visitor cannot change. The embed shows locked name, email and custom-question
+   * labels (a label that matches one of the event's questions) read-only; other locked keys are applied by the
+   * server without being shown.
+   */
   locked?: string[]
+  /**
+   * Show "Powered by Flux" in the embed this token opens (server default: true). Pass `false` to hide it. Sent
+   * as `powered_by` only when set; the embed's `poweredBy` mount option / `powered-by` attribute is ignored.
+   */
+  poweredBy?: boolean
   /** 30..600 seconds (default 600). */
   expiresInSec?: number
   idempotencyKey?: string
@@ -49,7 +63,7 @@ export async function createEmbedSession(o: CreateEmbedSessionOptions): Promise<
     product: 'flux',
     body: compact({
       event: o.eventId, allowed_origin: o.allowedOrigin, external_ref: o.externalRef, embedded_data: o.embeddedData,
-      locked: o.locked, expires_in_sec: o.expiresInSec,
+      locked: o.locked, powered_by: o.poweredBy, expires_in_sec: o.expiresInSec,
     }),
   })
   return { embedToken: res.embed_token, expiresAt: res.expires_at, eventId: res.event_id, mode: res.mode }

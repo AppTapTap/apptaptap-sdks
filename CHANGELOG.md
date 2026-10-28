@@ -2,6 +2,17 @@
 
 All notable changes to the AppTapTap SDKs. Versions follow semver; every package starts at 0.1.0.
 
+## Unreleased
+
+### @apptaptap/flux-embed and FluxKit (Swift)
+- `createEmbedSession({ poweredBy })` (FluxKit: `createEmbedSession(..., poweredBy:)`): sent as `powered_by`, only when set.
+  `false` hides "Powered by Flux" in the embed the token opens (server default: shown).
+- `allowedOrigin` tokens now work inside the Flux iframe: the frame sends the page's origin as `embed_origin`.
+- `locked` fields are shown read-only in the embed (name, email, and custom-question labels that match).
+- The `poweredBy` mount option / `powered-by` attribute is still accepted but ignored; the token's `powered_by` decides.
+  A public embed (no token) always shows the link.
+- Docs: `radius` is an integer from 0 to 24 (not 0..99).
+
 ## 0.1.0 (unreleased)
 
 ### @apptaptap/flux-embed

@@ -27,7 +27,8 @@ app.post('/api/flux-token', async (req, res) => {
     eventId: 'summer-party',
     allowedOrigin: 'https://app.example.com',
     embeddedData: { name: req.user.name, email: req.user.email },
-    locked: ['email'],
+    locked: ['email'],                               // shown read-only in the embed (name, email, matching custom labels)
+    poweredBy: false,                                // hides "Powered by Flux" for this token (default true)
   })
   res.json({ embed_token: embedToken })
 })

@@ -24,10 +24,16 @@ const { embedToken } = await createEmbedSession({
   allowedOrigin: 'https://app.example.com',
   externalRef: user.id,
   embeddedData: { name: user.name, email: user.email },
-  locked: ['email'],
+  locked: ['email'],                           // shown read-only in the embed (name, email, matching custom labels)
+  poweredBy: false,                            // hides "Powered by Flux" for this token (default true)
   idempotencyKey: crypto.randomUUID(),         // optional
 })
 ```
+
+Locked fields render read-only in the embed; the server's values win anyway. `allowedOrigin` works inside the Flux
+iframe (the frame sends your page's origin as `embed_origin`, from the loader's handshake). `poweredBy` is decided by
+the token: the `poweredBy` mount option / `powered-by` attribute is accepted but ignored, and an embed without a token
+always shows the link.
 
 ## Browser
 
