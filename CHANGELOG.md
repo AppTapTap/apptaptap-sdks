@@ -2,7 +2,7 @@
 
 All notable changes to the AppTapTap SDKs. Versions follow semver; every package starts at 0.1.0.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-10-28)
 
 ### @apptaptap/flux-embed
 - Browser entry: `register()` loads the hosted `https://flux.events/embed/v1/flux.js` once (defines `<flux-event>`
